@@ -20,9 +20,11 @@ function setLanguage(lang) {
     document.documentElement.lang = lang;
     document.documentElement.dir = direction;
 
-    const headerColor = '#E0E7FF'; // Unified color for now
+    // Theme-specific colors
+    const headerColor = '#4a2c2a'; // wood-dark
+    const bgColor = '#F5EACE'; // background-parchment
     tg?.setHeaderColor(headerColor);
-    tg?.setBackgroundColor(headerColor);
+    tg?.setBackgroundColor(bgColor);
 
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
@@ -71,7 +73,6 @@ function showAlert(message, type = 'success') {
 
 // ================= APP ENTRY POINT =================
 async function main() {
-    // **FIX: Set initial language immediately based on browser/telegram language**
     const tgUser = tg?.initDataUnsafe?.user;
     const initialLang = tgUser?.language_code === 'ar' ? 'ar' : 'en';
     setLanguage(initialLang);
@@ -88,20 +89,18 @@ async function main() {
         userId = auth.currentUser.uid;
         userRef = db.collection("users").doc(userId);
 
-        await initUser(tgUser, initialLang); // Pass initial language to user creation
+        await initUser(tgUser, initialLang);
         bindAllEvents();
 
         userRef.onSnapshot((snap) => {
             if (snap.exists) {
                 currentUserData = snap.data();
-                // **FIX: Update language only if it's different from the current one**
                 if (currentUserData.language && currentUserData.language !== currentLanguage) {
                     setLanguage(currentUserData.language);
                 }
                 updateUI(currentUserData);
-                showLoader(false); // Loader is hidden here, after the first successful data load
+                showLoader(false);
             } else {
-                // This case might happen if the document is deleted.
                 showLoader(false);
                 showAlert(i18n('error_occurred'), 'error');
             }
@@ -124,7 +123,7 @@ async function initUser(tgUser, initialLang) {
             telegramId: tgUser?.id ? String(tgUser.id) : 'N/A',
             username: initialUsername,
             photoUrl: photoUrl,
-            language: initialLang, // Use the detected language for new users
+            language: initialLang,
             usdt: 0, localCoin: 0, referrals: 0,
             lastCheckin: null, streak: 0, 
             lastHourlyClaim: null,
@@ -145,11 +144,11 @@ function updateUI(data) {
     const avatarEl = document.getElementById('user-avatar');
     if (data.photoUrl) {
         avatarEl.src = data.photoUrl;
-        avatarEl.onerror = () => { // Fallback if the photo URL fails
-            avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username )}&background=6D28D9&color=fff&bold=true`;
+        avatarEl.onerror = () => {
+            avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username )}&background=4a2c2a&color=F5EACE&bold=true`;
         };
     } else {
-        avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username )}&background=6D28D9&color=fff&bold=true`;
+        avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username )}&background=4a2c2a&color=F5EACE&bold=true`;
     }
 
     updateElement('local-coin', localCoin);
@@ -236,6 +235,8 @@ function bindAllEvents() {
     document.querySelectorAll('.action-card').forEach(card => {
         card.addEventListener('click', () => showPage(card.dataset.page));
     });
+    // Treasure Chest Animation
+    document.getElementById('treasure-chest')?.addEventListener('click', (e) => e.currentTarget.classList.toggle('open'));
 }
 
 // ================= EVENT HANDLERS =================
@@ -298,7 +299,7 @@ async function handleRedeemGiftCode() {
             showAlert(`${i18n('congrats_points')} ${result.data.reward} ${i18n('points')}`, "success");
             input.value = "";
         } else {
-            showAlert(result.data.message, "error"); // Message from backend is already translated
+            showAlert(result.data.message, "error");
         }
     } catch (error) {
         showAlert(error.message || i18n('code_invalid'), "error");
@@ -358,7 +359,7 @@ async function handleWithdraw() {
 }
 
 function handleInvite() {
-    const botUsername = "Qqk_bot"; // استبدل باسم بوتك
+    const botUsername = "Qqk_bot";
     const inviteLink = `https://t.me/${botUsername}?start=${userId}`;
     const shareText = `💰 ${i18n('invite_and_earn' )} 💰\n\n${inviteLink}`;
     tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(inviteLink )}&text=${encodeURIComponent(shareText)}`);
