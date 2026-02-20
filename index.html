@@ -6,13 +6,13 @@
     <title data-i18n="appName">Quest Bot</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- Added Cinzel font for the theme -->
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&family=Poppins:wght@400;500;700&family=Cinzel:wght@700&display=swap" rel="stylesheet">
+    <!-- Added Rajdhani font for the theme -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="loader-overlay" class="loader-overlay"><div class="loader-spinner"></div></div>
+    <div id="loader-overlay" class="loader-overlay"><div class="loader-spinner"><i class="ri-brain-line"></i></div></div>
 
     <div class="app-container">
         <!-- ================= HOME PAGE ================= -->
@@ -25,24 +25,26 @@
                     </div>
                     <div class="header-icons">
                         <div class="icon-box" id="language-switcher"><i class="ri-global-line"></i></div>
-                        <div class="icon-box" id="daily-reward-icon"><i class="ri-treasure-map-line"></i></div>
+                        <div class="icon-box" id="daily-reward-icon"><i class="ri-gift-line"></i></div>
                     </div>
                 </div>
-                <!-- The Treasure Chest -->
+                <!-- The AI Core -->
                 <div class="dashboard-hero">
                     <p data-i18n="points_balance">رصيد النقاط</p>
-                    <div class="balance-display" id="treasure-chest">
+                    <div class="balance-display">
+                        <!-- AI Brain Icon instead of image -->
+                        <i class="ri-brain-line coin-icon"></i>
                         <h1 id="local-coin">0</h1>
                     </div>
                     <div class="usdt-balance-display">
                         <span data-i18n="usdt_balance">رصيد الدولار</span>: $<span id="home-usdt-balance">0.0000</span>
                     </div>
                 </div>
-                <!-- Wooden Signs -->
+                <!-- Holo Cards -->
                 <div class="quick-actions">
-                    <div class="action-card" data-page="earn-page"><i class="ri-file-list-3-line"></i><span data-i18n="earn_points">اكسب النقاط</span></div>
-                    <div class="action-card" data-page="friends-page"><i class="ri-anchor-line"></i><span data-i18n="invite_friends">ادعُ الأصدقاء</span></div>
-                    <div class="action-card" data-page="exchange-page"><i class="ri-scales-3-line"></i><span data-i18n="exchange_withdraw">تحويل وسحب</span></div>
+                    <div class="action-card" data-page="earn-page"><i class="ri-function-line"></i><span data-i18n="earn_points">اكسب النقاط</span></div>
+                    <div class="action-card" data-page="friends-page"><i class="ri-share-circle-line"></i><span data-i18n="invite_friends">ادعُ الأصدقاء</span></div>
+                    <div class="action-card" data-page="exchange-page"><i class="ri-swap-box-line"></i><span data-i18n="exchange_withdraw">تحويل وسحب</span></div>
                 </div>
             </div>
         </div>
@@ -159,18 +161,17 @@
             </div>
         </div>
         
-        <!-- ================= NAVIGATION (ADVENTURER'S BELT) ================= -->
+        <!-- ================= NAVIGATION ================= -->
         <nav class="bottom-nav">
-            <!-- THEME ICONS: Scales, Treasure Chest, Compass, Anchor, Map -->
-            <a href="#" class="nav-link" data-page="exchange-page"><i class="ri-scales-3-line"></i><span data-i18n="nav_exchange">تحويل</span></a>
-            <a href="#" class="nav-link" data-page="mine-page"><i class="ri-treasure-map-fill"></i><span data-i18n="nav_rewards">المكافآت</span></a>
-            <a href="#" class="nav-link active" data-page="home-page"><i class="ri-compass-3-fill"></i><span data-i18n="nav_home">الرئيسية</span></a>
-            <a href="#" class="nav-link" data-page="friends-page"><i class="ri-anchor-fill"></i><span data-i18n="nav_friends">الأصدقاء</span></a>
-            <a href="#" class="nav-link" data-page="earn-page"><i class="ri-map-2-fill"></i><span data-i18n="nav_earn">اكسب</span></a>
+            <a href="#" class="nav-link" data-page="exchange-page"><i class="ri-swap-box-line"></i><span data-i18n="nav_exchange">تحويل</span></a>
+            <a href="#" class="nav-link" data-page="mine-page"><i class="ri-cpu-line"></i><span data-i18n="nav_rewards">المكافآت</span></a>
+            <a href="#" class="nav-link active" data-page="home-page"><i class="ri-home-4-line"></i><span data-i18n="nav_home">الرئيسية</span></a>
+            <a href="#" class="nav-link" data-page="friends-page"><i class="ri-group-line"></i><span data-i18n="nav_friends">الأصدقاء</span></a>
+            <a href="#" class="nav-link" data-page="earn-page"><i class="ri-function-line"></i><span data-i18n="nav_earn">اكسب</span></a>
         </nav>
     </div>
 
-    <!-- Scripts remain the same -->
+    <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
