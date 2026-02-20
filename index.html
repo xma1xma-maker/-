@@ -6,8 +6,8 @@
     <title data-i18n="appName">Quest Bot</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- Added Poppins font for English -->
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Added Cinzel font for the theme -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&family=Poppins:wght@400;500;700&family=Cinzel:wght@700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet"/>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -23,26 +23,26 @@
                         <img id="user-avatar" class="avatar" src="" alt="Avatar">
                         <span id="username"></span>
                     </div>
-                    <!-- Container for header icons -->
                     <div class="header-icons">
                         <div class="icon-box" id="language-switcher"><i class="ri-global-line"></i></div>
-                        <div class="icon-box" id="daily-reward-icon"><i class="ri-gift-line"></i></div>
+                        <div class="icon-box" id="daily-reward-icon"><i class="ri-treasure-map-line"></i></div>
                     </div>
                 </div>
+                <!-- The Treasure Chest -->
                 <div class="dashboard-hero">
                     <p data-i18n="points_balance">رصيد النقاط</p>
-                    <div class="balance-display">
-                        <img src="https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1fa99.svg" alt="coin" class="coin-icon"/>
+                    <div class="balance-display" id="treasure-chest">
                         <h1 id="local-coin">0</h1>
                     </div>
                     <div class="usdt-balance-display">
                         <span data-i18n="usdt_balance">رصيد الدولار</span>: $<span id="home-usdt-balance">0.0000</span>
                     </div>
                 </div>
+                <!-- Wooden Signs -->
                 <div class="quick-actions">
-                    <div class="action-card" data-page="earn-page"><i class="ri-copper-coin-line"></i><span data-i18n="earn_points">اكسب النقاط</span></div>
-                    <div class="action-card" data-page="friends-page"><i class="ri-group-line"></i><span data-i18n="invite_friends">ادعُ الأصدقاء</span></div>
-                    <div class="action-card" data-page="exchange-page"><i class="ri-exchange-dollar-line"></i><span data-i18n="exchange_withdraw">تحويل وسحب</span></div>
+                    <div class="action-card" data-page="earn-page"><i class="ri-file-list-3-line"></i><span data-i18n="earn_points">اكسب النقاط</span></div>
+                    <div class="action-card" data-page="friends-page"><i class="ri-anchor-line"></i><span data-i18n="invite_friends">ادعُ الأصدقاء</span></div>
+                    <div class="action-card" data-page="exchange-page"><i class="ri-scales-3-line"></i><span data-i18n="exchange_withdraw">تحويل وسحب</span></div>
                 </div>
             </div>
         </div>
@@ -106,30 +106,76 @@
             </div>
         </div>
         
-        <!-- ================= OTHER PAGES ================= -->
-        <div class="page" id="earn-page"><div class="page-header"><h3 data-i18n="earn_title">اكسب النقاط</h3></div><div class="content-container"><div id="urgent-tasks-section"><h4 data-i18n="urgent_tasks">🔥 مهام عاجلة</h4><div id="urgent-tasks-container"></div></div><div id="regular-tasks-section"><h4 data-i18n="daily_tasks">المهام اليومية</h4><div id="tasks-list-container"></div></div></div></div>
-        <div class="page" id="friends-page"><div class="page-header"><h3 data-i18n="friends_title">دعوة الأصدقاء</h3></div><div class="content-container"><div class="card"><h4 data-i18n="invite_and_earn">ادعُ أصدقاءك واربح!</h4><p><span data-i18n="invite_desc">لكل صديق ينضم عبر رابطك، ستحصل على مكافأة قدرها</span> <strong class="highlight">5000</strong> <span data-i18n="points">نقطة</span>.</p><button class="btn-submit invite-btn"><i class="ri-share-forward-line"></i> <span data-i18n="invite_share_button">مشاركة رابط الدعوة</span></button></div><div class="card"><h4 data-i18n="your_referrals">إحالاتك</h4><p><span data-i18n="referral_count_text">لقد قمت بدعوة</span> <strong id="referral-count" class="highlight">0</strong> <span data-i18n="friends_suffix">أصدقاء.</span></p></div></div></div>
+        <!-- ================= EARN PAGE ================= -->
+        <div class="page" id="earn-page">
+            <div class="page-header"><h3 data-i18n="earn_title">اكسب النقاط</h3></div>
+            <div class="content-container">
+                <div id="urgent-tasks-section">
+                    <h4 data-i18n="urgent_tasks">🔥 مهام عاجلة</h4>
+                    <div id="urgent-tasks-container"></div>
+                </div>
+                <div id="regular-tasks-section">
+                    <h4 data-i18n="daily_tasks">المهام اليومية</h4>
+                    <div id="tasks-list-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= FRIENDS PAGE ================= -->
+        <div class="page" id="friends-page">
+            <div class="page-header"><h3 data-i18n="friends_title">دعوة الأصدقاء</h3></div>
+            <div class="content-container">
+                <div class="card">
+                    <h4 data-i18n="invite_and_earn">ادعُ أصدقاءك واربح!</h4>
+                    <p><span data-i18n="invite_desc">لكل صديق ينضم عبر رابطك، ستحصل على مكافأة قدرها</span> <strong class="highlight">5000</strong> <span data-i18n="points">نقطة</span>.</p>
+                    <button class="btn-submit invite-btn"><i class="ri-share-forward-line"></i> <span data-i18n="invite_share_button">مشاركة رابط الدعوة</span></button>
+                </div>
+                <div class="card">
+                    <h4 data-i18n="your_referrals">إحالاتك</h4>
+                    <p><span data-i18n="referral_count_text">لقد قمت بدعوة</span> <strong id="referral-count" class="highlight">0</strong> <span data-i18n="friends_suffix">أصدقاء.</span></p>
+                </div>
+            </div>
+        </div>
 
         <!-- ================= MODALS ================= -->
-        <div id="daily-reward-modal" class="modal-overlay"><div class="modal-content"><i class="ri-close-line modal-close-btn"></i><div class="modal-icon-wrapper"><i class="ri-gift-2-fill"></i></div><h3 data-i18n="daily_reward_title">المكافأة اليومية</h3><p data-i18n="daily_reward_desc">سجل حضورك يومياً لتربح مكافآت قيمة.</p><div class="reward-status"><div class="streak-info"><i class="ri-calendar-check-line"></i><span><span id="streak-days">0</span> <span data-i18n="days_streak">أيام</span></span></div><div id="reward-countdown">⏳ ...</div></div><button id="claim-reward-btn" class="btn-submit" disabled data-i18n="claim_reward">المطالبة بالمكافأة</button></div></div>
-        <div id="alert-modal" class="modal-overlay"><div class="modal-content"><div id="alert-icon" class="modal-icon-wrapper"></div><p id="alert-message"></p><button id="alert-close-btn" class="btn-submit" data-i18n="ok">حسناً</button></div></div>
+        <div id="daily-reward-modal" class="modal-overlay">
+            <div class="modal-content">
+                <i class="ri-close-line modal-close-btn"></i>
+                <div class="modal-icon-wrapper"><i class="ri-gift-2-fill"></i></div>
+                <h3 data-i18n="daily_reward_title">المكافأة اليومية</h3>
+                <p data-i18n="daily_reward_desc">سجل حضورك يومياً لتربح مكافآت قيمة.</p>
+                <div class="reward-status">
+                    <div class="streak-info"><i class="ri-calendar-check-line"></i><span><span id="streak-days">0</span> <span data-i18n="days_streak">أيام</span></span></div>
+                    <div id="reward-countdown">⏳ ...</div>
+                </div>
+                <button id="claim-reward-btn" class="btn-submit" disabled data-i18n="claim_reward">المطالبة بالمكافأة</button>
+            </div>
+        </div>
+        <div id="alert-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div id="alert-icon" class="modal-icon-wrapper"></div>
+                <p id="alert-message"></p>
+                <button id="alert-close-btn" class="btn-submit" data-i18n="ok">حسناً</button>
+            </div>
+        </div>
         
-        <!-- ================= NAVIGATION ================= -->
+        <!-- ================= NAVIGATION (ADVENTURER'S BELT) ================= -->
         <nav class="bottom-nav">
-            <a href="#" class="nav-link" data-page="exchange-page"><i class="ri-exchange-dollar-line"></i><span data-i18n="nav_exchange">تحويل</span></a>
-            <a href="#" class="nav-link" data-page="mine-page"><i class="ri-gift-line"></i><span data-i18n="nav_rewards">المكافآت</span></a>
-            <a href="#" class="nav-link active" data-page="home-page"><i class="ri-home-4-fill"></i><span data-i18n="nav_home">الرئيسية</span></a>
-            <a href="#" class="nav-link" data-page="friends-page"><i class="ri-group-line"></i><span data-i18n="nav_friends">الأصدقاء</span></a>
-            <a href="#" class="nav-link" data-page="earn-page"><i class="ri-copper-coin-line"></i><span data-i18n="nav_earn">اكسب</span></a>
+            <!-- THEME ICONS: Scales, Treasure Chest, Compass, Anchor, Map -->
+            <a href="#" class="nav-link" data-page="exchange-page"><i class="ri-scales-3-line"></i><span data-i18n="nav_exchange">تحويل</span></a>
+            <a href="#" class="nav-link" data-page="mine-page"><i class="ri-treasure-map-fill"></i><span data-i18n="nav_rewards">المكافآت</span></a>
+            <a href="#" class="nav-link active" data-page="home-page"><i class="ri-compass-3-fill"></i><span data-i18n="nav_home">الرئيسية</span></a>
+            <a href="#" class="nav-link" data-page="friends-page"><i class="ri-anchor-fill"></i><span data-i18n="nav_friends">الأصدقاء</span></a>
+            <a href="#" class="nav-link" data-page="earn-page"><i class="ri-map-2-fill"></i><span data-i18n="nav_earn">اكسب</span></a>
         </nav>
     </div>
 
+    <!-- Scripts remain the same -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-functions.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- IMPORTANT: Add the new languages file -->
     <script src="languages.js"></script>
     <script src="app.js"></script>
 </body>
