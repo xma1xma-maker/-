@@ -20,8 +20,7 @@ function setLanguage(lang) {
     document.documentElement.lang = lang;
     document.documentElement.dir = direction;
 
-    // Set header/background color based on language direction
-    const headerColor = lang === 'ar' ? '#E0E7FF' : '#EDE9FE';
+    const headerColor = '#E0E7FF'; // Unified color for now
     tg?.setHeaderColor(headerColor);
     tg?.setBackgroundColor(headerColor);
 
@@ -72,6 +71,11 @@ function showAlert(message, type = 'success') {
 
 // ================= APP ENTRY POINT =================
 async function main() {
+    // **FIX: Set initial language immediately based on browser/telegram language**
+    const tgUser = tg?.initDataUnsafe?.user;
+    const initialLang = tgUser?.language_code === 'ar' ? 'ar' : 'en';
+    setLanguage(initialLang);
+    
     showLoader(true);
     try {
         const firebaseConfig = { apiKey: "AIzaSyD5YAKC8KO5jKHQdsdrA8Bm-ERD6yUdHBQ", authDomain: "tele-follow.firebaseapp.com", projectId: "tele-follow", storageBucket: "tele-follow.firebasestorage.app", messagingSenderId: "311701431089", appId: "1:311701431089:web:fcba431dcae893a87cc610" };
@@ -79,22 +83,27 @@ async function main() {
         auth = firebase.auth();
         db = firebase.firestore();
         functions = firebase.functions();
-
-        const tgUser = tg?.initDataUnsafe?.user;
         
         await auth.signInAnonymously();
         userId = auth.currentUser.uid;
         userRef = db.collection("users").doc(userId);
 
-        await initUser(tgUser);
+        await initUser(tgUser, initialLang); // Pass initial language to user creation
         bindAllEvents();
 
         userRef.onSnapshot((snap) => {
             if (snap.exists) {
                 currentUserData = snap.data();
-                setLanguage(currentUserData.language || 'ar');
+                // **FIX: Update language only if it's different from the current one**
+                if (currentUserData.language && currentUserData.language !== currentLanguage) {
+                    setLanguage(currentUserData.language);
+                }
                 updateUI(currentUserData);
+                showLoader(false); // Loader is hidden here, after the first successful data load
+            } else {
+                // This case might happen if the document is deleted.
                 showLoader(false);
+                showAlert(i18n('error_occurred'), 'error');
             }
         });
     } catch (error) {
@@ -105,18 +114,17 @@ async function main() {
 }
 
 // ================= CORE FUNCTIONS =================
-async function initUser(tgUser) {
+async function initUser(tgUser, initialLang) {
     const doc = await userRef.get();
     if (!doc.exists) {
         const initialUsername = tgUser?.username || tgUser?.first_name || 'New User';
         let photoUrl = tgUser?.photo_url || '';
-        const language = tgUser?.language_code === 'ar' ? 'ar' : 'en';
 
         await userRef.set({
             telegramId: tgUser?.id ? String(tgUser.id) : 'N/A',
             username: initialUsername,
             photoUrl: photoUrl,
-            language: language,
+            language: initialLang, // Use the detected language for new users
             usdt: 0, localCoin: 0, referrals: 0,
             lastCheckin: null, streak: 0, 
             lastHourlyClaim: null,
@@ -137,6 +145,9 @@ function updateUI(data) {
     const avatarEl = document.getElementById('user-avatar');
     if (data.photoUrl) {
         avatarEl.src = data.photoUrl;
+        avatarEl.onerror = () => { // Fallback if the photo URL fails
+            avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username )}&background=6D28D9&color=fff&bold=true`;
+        };
     } else {
         avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username )}&background=6D28D9&color=fff&bold=true`;
     }
@@ -148,7 +159,7 @@ function updateUI(data) {
     updateElement('referral-count', data.referrals || 0);
     
     const exchangeRateText = `${POINTS_PER_USDT_UNIT} ${i18n('points')} = ${USDT_PER_UNIT} USDT`;
-    document.getElementById('exchange-rate-info').innerText = exchangeRateText;
+    document.getElementById('exchange-rate-info-text').innerText = exchangeRateText;
     
     startDailyCountdown(data.lastCheckin);
     startHourlyCountdown(data.lastHourlyClaim);
@@ -284,7 +295,7 @@ async function handleRedeemGiftCode() {
         const redeemFunction = functions.httpsCallable('redeemGiftCode' );
         const result = await redeemFunction({ code: code });
         if (result.data.success) {
-            showAlert(i18n('congrats_points', {reward: result.data.reward}), "success");
+            showAlert(`${i18n('congrats_points')} ${result.data.reward} ${i18n('points')}`, "success");
             input.value = "";
         } else {
             showAlert(result.data.message, "error"); // Message from backend is already translated
