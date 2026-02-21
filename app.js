@@ -1,6 +1,11 @@
+// ================= ADSGRAM INTEGRATION =================
+// IMPORTANT: Make sure to add this script tag to your HTML file's <head> section
+// <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+// =======================================================
+
 // ================= TELEGRAM & GLOBAL STATE =================
 const tg = window.Telegram?.WebApp;
-if (tg) {
+if (tg ) {
     tg.ready();
     tg.expand();
 }
@@ -8,6 +13,7 @@ if (tg) {
 let db, auth, functions;
 let userId = null, userRef = null, currentUserData = null;
 let dailyCountdownInterval, hourlyCountdownInterval;
+let AdController = null; // AdsGram Controller
 let currentLanguage = 'ar'; // Default language
 
 const POINTS_PER_USDT_UNIT = 1000; 
@@ -20,11 +26,9 @@ function setLanguage(lang) {
     document.documentElement.lang = lang;
     document.documentElement.dir = direction;
 
-    // Theme-specific colors
-    const headerColor = '#4a2c2a'; // wood-dark
-    const bgColor = '#F5EACE'; // background-parchment
+    const headerColor = '#E0E7FF'; // Unified color for now
     tg?.setHeaderColor(headerColor);
-    tg?.setBackgroundColor(bgColor);
+    tg?.setBackgroundColor(headerColor);
 
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
@@ -85,11 +89,29 @@ async function main() {
         db = firebase.firestore();
         functions = firebase.functions();
         
-        await auth.signInAnonymously();
-        userId = auth.currentUser.uid;
+        // ================= ADSGRAM INITIALIZATION =================
+        try {
+            if (window.Adsgram) {
+                AdController = window.Adsgram.init({ blockId: "int-23433" });
+                console.log("AdsGram SDK Initialized successfully.");
+            } else {
+                console.error("AdsGram SDK (window.Adsgram) not found.");
+            }
+        } catch (e) {
+            console.error("Error initializing AdsGram SDK:", e);
+        }
+        // =======================================================
+
+        // Set persistence to 'none' to guarantee user isolation
+        await auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+
+        const userCredential = await auth.signInAnonymously();
+        userId = userCredential.user.uid;
         userRef = db.collection("users").doc(userId);
 
-        await initUser(tgUser, initialLang);
+        // Initialize the user document
+        await initUser(tgUser, initialLang); 
+        
         bindAllEvents();
 
         userRef.onSnapshot((snap) => {
@@ -100,13 +122,11 @@ async function main() {
                 }
                 updateUI(currentUserData);
                 showLoader(false);
-            } else {
-                showLoader(false);
-                showAlert(i18n('error_occurred'), 'error');
             }
         });
+
     } catch (error) {
-        console.error("Critical Error:", error);
+        console.error("Critical Error during initialization:", error);
         showAlert(i18n('error_occurred'), "error");
         showLoader(false);
     }
@@ -115,6 +135,8 @@ async function main() {
 // ================= CORE FUNCTIONS =================
 async function initUser(tgUser, initialLang) {
     const doc = await userRef.get();
+    
+    // Check if the user is new and create their document
     if (!doc.exists) {
         const initialUsername = tgUser?.username || tgUser?.first_name || 'New User';
         let photoUrl = tgUser?.photo_url || '';
@@ -129,8 +151,34 @@ async function initUser(tgUser, initialLang) {
             lastHourlyClaim: null,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             completedTasks: [], redeemedCodes: []
+            // Referral fields are no longer needed here
         }, { merge: true });
     }
+}
+
+
+// A flag to ensure events are bound only once
+let eventsBound = false; 
+function bindAllEvents() {
+    if (eventsBound) return; // Prevent re-binding events
+    eventsBound = true;
+
+    document.getElementById('language-switcher')?.addEventListener('click', handleLanguageSwitch);
+    document.getElementById('daily-reward-icon')?.addEventListener('click', () => document.getElementById('daily-reward-modal').classList.add('show'));
+    document.querySelector('#daily-reward-modal .modal-close-btn')?.addEventListener('click', () => document.getElementById('daily-reward-modal').classList.remove('show'));
+    document.getElementById('claim-reward-btn')?.addEventListener('click', handleClaimDailyReward);
+    document.getElementById('claim-hourly-btn')?.addEventListener('click', handleClaimHourlyReward);
+    document.getElementById('alert-close-btn')?.addEventListener('click', () => document.getElementById('alert-modal').classList.remove('show'));
+    document.getElementById('convert-points-btn')?.addEventListener('click', handleConvertPoints);
+    document.getElementById('withdraw-btn')?.addEventListener('click', handleWithdraw);
+    document.getElementById('redeem-gift-code-btn')?.addEventListener('click', handleRedeemGiftCode);
+    document.querySelector('.invite-btn')?.addEventListener('click', handleInvite);
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', (e) => { e.preventDefault(); showPage(link.dataset.page); });
+    });
+    document.querySelectorAll('.action-card').forEach(card => {
+        card.addEventListener('click', () => showPage(card.dataset.page));
+    });
 }
 
 function updateUI(data) {
@@ -145,10 +193,10 @@ function updateUI(data) {
     if (data.photoUrl) {
         avatarEl.src = data.photoUrl;
         avatarEl.onerror = () => {
-            avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username )}&background=4a2c2a&color=F5EACE&bold=true`;
+            avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username  )}&background=6D28D9&color=fff&bold=true`;
         };
     } else {
-        avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username )}&background=4a2c2a&color=F5EACE&bold=true`;
+        avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username  )}&background=6D28D9&color=fff&bold=true`;
     }
 
     updateElement('local-coin', localCoin);
@@ -164,7 +212,6 @@ function updateUI(data) {
     startHourlyCountdown(data.lastHourlyClaim);
 }
 
-// ================= COUNTDOWN FUNCTIONS =================
 function startDailyCountdown(lastCheckin) {
     const el = document.getElementById("reward-countdown");
     const btn = document.getElementById("claim-reward-btn");
@@ -217,29 +264,19 @@ function startHourlyCountdown(lastClaim) {
     }, 1000);
 }
 
-// ================= EVENT BINDING =================
-function bindAllEvents() {
-    document.getElementById('language-switcher')?.addEventListener('click', handleLanguageSwitch);
-    document.getElementById('daily-reward-icon')?.addEventListener('click', () => document.getElementById('daily-reward-modal').classList.add('show'));
-    document.querySelector('#daily-reward-modal .modal-close-btn')?.addEventListener('click', () => document.getElementById('daily-reward-modal').classList.remove('show'));
-    document.getElementById('claim-reward-btn')?.addEventListener('click', handleClaimDailyReward);
-    document.getElementById('claim-hourly-btn')?.addEventListener('click', handleClaimHourlyReward);
-    document.getElementById('alert-close-btn')?.addEventListener('click', () => document.getElementById('alert-modal').classList.remove('show'));
-    document.getElementById('convert-points-btn')?.addEventListener('click', handleConvertPoints);
-    document.getElementById('withdraw-btn')?.addEventListener('click', handleWithdraw);
-    document.getElementById('redeem-gift-code-btn')?.addEventListener('click', handleRedeemGiftCode);
-    document.querySelector('.invite-btn')?.addEventListener('click', handleInvite);
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.addEventListener('click', (e) => { e.preventDefault(); showPage(link.dataset.page); });
+function showInterstitialAd() {
+    if (!AdController) {
+        console.log("AdController not initialized. Skipping ad.");
+        return;
+    }
+    console.log("Attempting to show Interstitial Ad...");
+    AdController.show().then(result => {
+        console.log("AdsGram ad shown or closed:", result);
+    }).catch(error => {
+        console.error("AdsGram ad error:", error);
     });
-    document.querySelectorAll('.action-card').forEach(card => {
-        card.addEventListener('click', () => showPage(card.dataset.page));
-    });
-    // Treasure Chest Animation
-    document.getElementById('treasure-chest')?.addEventListener('click', (e) => e.currentTarget.classList.toggle('open'));
 }
 
-// ================= EVENT HANDLERS =================
 async function handleLanguageSwitch() {
     const newLang = currentLanguage === 'ar' ? 'en' : 'ar';
     setLanguage(newLang);
@@ -263,6 +300,7 @@ async function handleClaimDailyReward() {
         });
         document.getElementById('daily-reward-modal').classList.remove('show');
         showAlert(i18n('congrats_points', {points: 500}), "success");
+        showInterstitialAd();
     } catch (error) {
         showAlert(i18n('error_occurred'), "error");
         btn.disabled = false;
@@ -279,6 +317,7 @@ async function handleClaimHourlyReward() {
             lastHourlyClaim: firebase.firestore.FieldValue.serverTimestamp()
         });
         showAlert(i18n('congrats_points', {points: 100}), "success");
+        showInterstitialAd();
     } catch (error) {
         showAlert(i18n('error_occurred'), "error");
         btn.disabled = false;
@@ -293,7 +332,7 @@ async function handleRedeemGiftCode() {
     const btn = document.getElementById("redeem-gift-code-btn");
     btn.disabled = true; btn.innerText = i18n('loading');
     try {
-        const redeemFunction = functions.httpsCallable('redeemGiftCode' );
+        const redeemFunction = functions.httpsCallable('redeemGiftCode'  );
         const result = await redeemFunction({ code: code });
         if (result.data.success) {
             showAlert(`${i18n('congrats_points')} ${result.data.reward} ${i18n('points')}`, "success");
@@ -325,6 +364,7 @@ async function handleConvertPoints() {
             usdt: firebase.firestore.FieldValue.increment(usdtToAdd)
         });
         showAlert(`${pointsToConvert} ${i18n('points')} ${i18n('conversion_success')} ${usdtToAdd.toFixed(4)} USDT.`, "success");
+        showInterstitialAd();
         input.value = "";
     } catch (error) {
         showAlert(i18n('error_occurred'), "error");
@@ -361,11 +401,10 @@ async function handleWithdraw() {
 function handleInvite() {
     const botUsername = "Qqk_bot";
     const inviteLink = `https://t.me/${botUsername}?start=${userId}`;
-    const shareText = `💰 ${i18n('invite_and_earn' )} 💰\n\n${inviteLink}`;
-    tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(inviteLink )}&text=${encodeURIComponent(shareText)}`);
+    const shareText = `💰 ${i18n('invite_and_earn'  )} 💰\n\n${inviteLink}`;
+    tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(inviteLink  )}&text=${encodeURIComponent(shareText)}`);
 }
 
-// ================= TASKS FUNCTIONS =================
 async function fetchAndDisplayTasks() {
     const urgentContainer = document.getElementById('urgent-tasks-container');
     const regularContainer = document.getElementById('tasks-list-container');
