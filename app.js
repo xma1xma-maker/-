@@ -151,7 +151,6 @@ async function initUser(tgUser, initialLang) {
             lastHourlyClaim: null,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             completedTasks: [], redeemedCodes: []
-            // Referral fields are no longer needed here
         }, { merge: true });
     }
 }
@@ -398,11 +397,14 @@ async function handleWithdraw() {
     }
 }
 
+// **MODIFIED FUNCTION**
 function handleInvite() {
     const botUsername = "Qqk_bot";
-    const inviteLink = `https://t.me/${botUsername}?start=${userId}`;
-    const shareText = `💰 ${i18n('invite_and_earn'  )} 💰\n\n${inviteLink}`;
-    tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(inviteLink  )}&text=${encodeURIComponent(shareText)}`);
+    const botLink = `https://t.me/${botUsername}`; // Direct link to the bot
+    const shareText = i18n('bot_share_text' ); // A generic share text
+    
+    // Opens the Telegram share dialog with the bot's link and a generic message
+    tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(botLink )}&text=${encodeURIComponent(shareText)}`);
 }
 
 async function fetchAndDisplayTasks() {
