@@ -1,5 +1,4 @@
 // ================= ADSGRAM INTEGRATION =================
-// IMPORTANT: Make sure to add this script tag to your HTML file's <head> section
 // <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
 // =======================================================
 
@@ -10,8 +9,11 @@ if (tg ) {
     tg.expand();
 }
 
-let db, auth, functions;
-let userId = null, userRef = null, currentUserData = null;
+// We only need db. No auth or functions.
+let db;
+let userId = null; // This will be the user's Telegram ID
+let userRef = null;
+let currentUserData = null;
 let dailyCountdownInterval, hourlyCountdownInterval;
 let AdController = null;
 let currentLanguage = 'ar';
@@ -75,58 +77,52 @@ function showAlert(message, type = 'success') {
 // ================= APP ENTRY POINT =================
 async function main() {
     const tgUser = tg?.initDataUnsafe?.user;
-    const initialLang = tgUser?.language_code === 'ar' ? 'ar' : 'en';
+
+    // **CRITICAL CHECK: Abort if Telegram user ID is not available**
+    if (!tgUser || !tgUser.id) {
+        showLoader(false);
+        showAlert("Could not verify your Telegram account. Please restart the bot.", "error");
+        console.error("Fatal: Telegram user data or ID is unavailable.");
+        return; // Stop execution
+    }
+
+    const initialLang = tgUser.language_code === 'ar' ? 'ar' : 'en';
     setLanguage(initialLang);
     showLoader(true);
 
     try {
         const firebaseConfig = { apiKey: "AIzaSyD5YAKC8KO5jKHQdsdrA8Bm-ERD6yUdHBQ", authDomain: "tele-follow.firebaseapp.com", projectId: "tele-follow", storageBucket: "tele-follow.firebasestorage.app", messagingSenderId: "311701431089", appId: "1:311701431089:web:fcba431dcae893a87cc610" };
         firebase.initializeApp(firebaseConfig);
-        auth = firebase.auth();
         db = firebase.firestore();
-        // We don't initialize functions since you are not using them
-        // functions = firebase.functions(); 
 
-        // **FINAL FIX (No Functions): Use onAuthStateChanged to manage the user session**
-        auth.onAuthStateChanged(async (user) => {
-            let currentUser = user;
-            // If no user is logged in, sign in anonymously
-            if (!currentUser) {
-                try {
-                    const userCredential = await auth.signInAnonymously();
-                    currentUser = userCredential.user;
-                } catch (authError) {
-                    console.error("Anonymous sign-in failed:", authError);
-                    showAlert(i18n('error_occurred'), "error");
-                    showLoader(false);
-                    return;
-                }
+        // **THE ULTIMATE FIX: Use Telegram ID as the direct and only identifier**
+        userId = String(tgUser.id);
+        userRef = db.collection("users").doc(userId);
+
+        // Initialize AdsGram SDK
+        try {
+            if (window.Adsgram) {
+                AdController = window.Adsgram.init({ blockId: "int-23433" });
             }
+        } catch (e) { console.error("Error initializing AdsGram SDK:", e); }
 
-            // At this point, we are guaranteed to have a user
-            userId = currentUser.uid;
-            userRef = db.collection("users").doc(userId);
+        await initUser(tgUser, initialLang);
+        bindAllEvents();
 
-            // Initialize AdsGram SDK
-            try {
-                if (window.Adsgram) {
-                    AdController = window.Adsgram.init({ blockId: "int-23433" });
+        // Listen for real-time updates on the user's document
+        userRef.onSnapshot((snap) => {
+            if (snap.exists) {
+                currentUserData = snap.data();
+                if (currentUserData.language && currentUserData.language !== currentLanguage) {
+                    setLanguage(currentUserData.language);
                 }
-            } catch (e) { console.error("Error initializing AdsGram SDK:", e); }
-
-            await initUser(tgUser, initialLang);
-            bindAllEvents();
-
-            userRef.onSnapshot((snap) => {
-                if (snap.exists) {
-                    currentUserData = snap.data();
-                    if (currentUserData.language && currentUserData.language !== currentLanguage) {
-                        setLanguage(currentUserData.language);
-                    }
-                    updateUI(currentUserData);
-                }
-                showLoader(false);
-            });
+                updateUI(currentUserData);
+            }
+            showLoader(false); // Hide loader after the first data load
+        }, (error) => {
+            console.error("Firestore snapshot error:", error);
+            showAlert(i18n('error_occurred'), "error");
+            showLoader(false);
         });
 
     } catch (error) {
@@ -143,7 +139,7 @@ async function initUser(tgUser, initialLang) {
         const initialUsername = tgUser?.username || tgUser?.first_name || 'New User';
         let photoUrl = tgUser?.photo_url || '';
         await userRef.set({
-            telegramId: tgUser?.id ? String(tgUser.id) : 'N/A',
+            telegramId: String(tgUser.id), // Store it for reference
             username: initialUsername,
             photoUrl: photoUrl,
             language: initialLang,
@@ -308,17 +304,9 @@ async function handleClaimHourlyReward() {
 }
 
 async function handleRedeemGiftCode() {
-    // This function will not work without Cloud Functions.
-    // You can show an alert to the user.
+    // This feature is insecure without a backend.
+    // It's better to disable it if you cannot use Cloud Functions.
     showAlert("Gift codes are temporarily unavailable.", "error");
-    return;
-
-    /*
-    // OLD DANGEROUS CODE - DO NOT USE
-    const input = document.getElementById("gift-code-input");
-    const code = input.value.trim().toUpperCase();
-    // ... this requires a backend to be secure.
-    */
 }
 
 async function handleConvertPoints() {
@@ -355,8 +343,12 @@ async function handleWithdraw() {
     btn.disabled = true; btn.innerText = i18n('loading');
     try {
         await db.collection("withdrawals").add({
-            userId: userId, username: currentUserData.username, amount: amount, wallet: wallet,
-            status: "pending", createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            userId: userId, // userId is now the telegramId
+            username: currentUserData.username, 
+            amount: amount, 
+            wallet: wallet,
+            status: "pending", 
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         await userRef.update({ usdt: firebase.firestore.FieldValue.increment(-amount) });
         showAlert(i18n('withdrawal_success'), "success");
