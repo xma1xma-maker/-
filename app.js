@@ -10,8 +10,8 @@ if (tg ) {
     tg.expand();
 }
 
-let db, auth, functions;
-let userId = null, userRef = null, currentUserData = null;
+let db, functions; // Removed auth
+let userId = null, userRef = null, currentUserData = null; // userId will now be the telegramId
 let dailyCountdownInterval, hourlyCountdownInterval;
 let AdController = null; // AdsGram Controller
 let currentLanguage = 'ar'; // Default language
@@ -78,14 +78,22 @@ function showAlert(message, type = 'success') {
 // ================= APP ENTRY POINT =================
 async function main() {
     const tgUser = tg?.initDataUnsafe?.user;
-    const initialLang = tgUser?.language_code === 'ar' ? 'ar' : 'en';
+    
+    // **CRITICAL FIX: ABORT IF TELEGRAM USER ID IS NOT AVAILABLE**
+    if (!tgUser || !tgUser.id) {
+        showLoader(false);
+        showAlert("Could not verify Telegram user. Please try again.", "error");
+        console.error("Telegram user data is unavailable.");
+        return; // Stop execution if we can't get a unique ID
+    }
+
+    const initialLang = tgUser.language_code === 'ar' ? 'ar' : 'en';
     setLanguage(initialLang);
     
     showLoader(true);
     try {
         const firebaseConfig = { apiKey: "AIzaSyD5YAKC8KO5jKHQdsdrA8Bm-ERD6yUdHBQ", authDomain: "tele-follow.firebaseapp.com", projectId: "tele-follow", storageBucket: "tele-follow.firebasestorage.app", messagingSenderId: "311701431089", appId: "1:311701431089:web:fcba431dcae893a87cc610" };
         firebase.initializeApp(firebaseConfig);
-        auth = firebase.auth();
         db = firebase.firestore();
         functions = firebase.functions();
         
@@ -102,14 +110,10 @@ async function main() {
         }
         // =======================================================
 
-        // Set persistence to 'none' to guarantee user isolation
-        await auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
-
-        const userCredential = await auth.signInAnonymously();
-        userId = userCredential.user.uid;
+        // **CRITICAL FIX: Use Telegram ID as the unique document ID**
+        userId = String(tgUser.id);
         userRef = db.collection("users").doc(userId);
 
-        // Initialize the user document
         await initUser(tgUser, initialLang); 
         
         bindAllEvents();
@@ -121,8 +125,8 @@ async function main() {
                     setLanguage(currentUserData.language);
                 }
                 updateUI(currentUserData);
-                showLoader(false);
             }
+            showLoader(false); // Hide loader after first data load or creation
         });
 
     } catch (error) {
@@ -136,13 +140,13 @@ async function main() {
 async function initUser(tgUser, initialLang) {
     const doc = await userRef.get();
     
-    // Check if the user is new and create their document
     if (!doc.exists) {
         const initialUsername = tgUser?.username || tgUser?.first_name || 'New User';
         let photoUrl = tgUser?.photo_url || '';
 
         await userRef.set({
-            telegramId: tgUser?.id ? String(tgUser.id) : 'N/A',
+            // The telegramId is now the document ID itself, but we can store it for clarity
+            telegramId: String(tgUser.id), 
             username: initialUsername,
             photoUrl: photoUrl,
             language: initialLang,
@@ -331,8 +335,9 @@ async function handleRedeemGiftCode() {
     const btn = document.getElementById("redeem-gift-code-btn");
     btn.disabled = true; btn.innerText = i18n('loading');
     try {
+        // This function needs context, so we need to pass the userId (telegramId)
         const redeemFunction = functions.httpsCallable('redeemGiftCode'  );
-        const result = await redeemFunction({ code: code });
+        const result = await redeemFunction({ code: code, userId: userId });
         if (result.data.success) {
             showAlert(`${i18n('congrats_points')} ${result.data.reward} ${i18n('points')}`, "success");
             input.value = "";
@@ -397,13 +402,9 @@ async function handleWithdraw() {
     }
 }
 
-// **MODIFIED FUNCTION**
 function handleInvite() {
-    const botUsername = "Qqk_bot";
-    const botLink = `https://t.me/${botUsername}`; // Direct link to the bot
-    const shareText = i18n('bot_share_text' ); // A generic share text
-    
-    // Opens the Telegram share dialog with the bot's link and a generic message
+    const botLink = "https://t.me/Qqk_bot";
+    const shareText = "اربح معنا الان";
     tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(botLink )}&text=${encodeURIComponent(shareText)}`);
 }
 
