@@ -10,11 +10,11 @@ if (tg ) {
     tg.expand();
 }
 
-let db, functions; // Removed auth
-let userId = null, userRef = null, currentUserData = null; // userId will now be the telegramId
+let db, auth, functions;
+let userId = null, userRef = null, currentUserData = null;
 let dailyCountdownInterval, hourlyCountdownInterval;
-let AdController = null; // AdsGram Controller
-let currentLanguage = 'ar'; // Default language
+let AdController = null;
+let currentLanguage = 'ar';
 
 const POINTS_PER_USDT_UNIT = 1000; 
 const USDT_PER_UNIT = 0.1;
@@ -25,11 +25,9 @@ function setLanguage(lang) {
     const direction = lang === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.lang = lang;
     document.documentElement.dir = direction;
-
-    const headerColor = '#E0E7FF'; // Unified color for now
+    const headerColor = '#E0E7FF';
     tg?.setHeaderColor(headerColor);
     tg?.setBackgroundColor(headerColor);
-
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
         if (translations[lang] && translations[lang][key]) {
@@ -51,7 +49,6 @@ function i18n(key, replacements = {}) {
     }
     return text;
 }
-
 
 // ================= UI FUNCTIONS =================
 function showLoader(show) { document.getElementById('loader-overlay').style.display = show ? 'flex' : 'none'; }
@@ -78,55 +75,58 @@ function showAlert(message, type = 'success') {
 // ================= APP ENTRY POINT =================
 async function main() {
     const tgUser = tg?.initDataUnsafe?.user;
-    
-    // **CRITICAL FIX: ABORT IF TELEGRAM USER ID IS NOT AVAILABLE**
-    if (!tgUser || !tgUser.id) {
-        showLoader(false);
-        showAlert("Could not verify Telegram user. Please try again.", "error");
-        console.error("Telegram user data is unavailable.");
-        return; // Stop execution if we can't get a unique ID
-    }
-
-    const initialLang = tgUser.language_code === 'ar' ? 'ar' : 'en';
+    const initialLang = tgUser?.language_code === 'ar' ? 'ar' : 'en';
     setLanguage(initialLang);
-    
     showLoader(true);
+
     try {
         const firebaseConfig = { apiKey: "AIzaSyD5YAKC8KO5jKHQdsdrA8Bm-ERD6yUdHBQ", authDomain: "tele-follow.firebaseapp.com", projectId: "tele-follow", storageBucket: "tele-follow.firebasestorage.app", messagingSenderId: "311701431089", appId: "1:311701431089:web:fcba431dcae893a87cc610" };
         firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
         db = firebase.firestore();
-        functions = firebase.functions();
-        
-        // ================= ADSGRAM INITIALIZATION =================
-        try {
-            if (window.Adsgram) {
-                AdController = window.Adsgram.init({ blockId: "int-23433" });
-                console.log("AdsGram SDK Initialized successfully.");
-            } else {
-                console.error("AdsGram SDK (window.Adsgram) not found.");
-            }
-        } catch (e) {
-            console.error("Error initializing AdsGram SDK:", e);
-        }
-        // =======================================================
+        // We don't initialize functions since you are not using them
+        // functions = firebase.functions(); 
 
-        // **CRITICAL FIX: Use Telegram ID as the unique document ID**
-        userId = String(tgUser.id);
-        userRef = db.collection("users").doc(userId);
-
-        await initUser(tgUser, initialLang); 
-        
-        bindAllEvents();
-
-        userRef.onSnapshot((snap) => {
-            if (snap.exists) {
-                currentUserData = snap.data();
-                if (currentUserData.language && currentUserData.language !== currentLanguage) {
-                    setLanguage(currentUserData.language);
+        // **FINAL FIX (No Functions): Use onAuthStateChanged to manage the user session**
+        auth.onAuthStateChanged(async (user) => {
+            let currentUser = user;
+            // If no user is logged in, sign in anonymously
+            if (!currentUser) {
+                try {
+                    const userCredential = await auth.signInAnonymously();
+                    currentUser = userCredential.user;
+                } catch (authError) {
+                    console.error("Anonymous sign-in failed:", authError);
+                    showAlert(i18n('error_occurred'), "error");
+                    showLoader(false);
+                    return;
                 }
-                updateUI(currentUserData);
             }
-            showLoader(false); // Hide loader after first data load or creation
+
+            // At this point, we are guaranteed to have a user
+            userId = currentUser.uid;
+            userRef = db.collection("users").doc(userId);
+
+            // Initialize AdsGram SDK
+            try {
+                if (window.Adsgram) {
+                    AdController = window.Adsgram.init({ blockId: "int-23433" });
+                }
+            } catch (e) { console.error("Error initializing AdsGram SDK:", e); }
+
+            await initUser(tgUser, initialLang);
+            bindAllEvents();
+
+            userRef.onSnapshot((snap) => {
+                if (snap.exists) {
+                    currentUserData = snap.data();
+                    if (currentUserData.language && currentUserData.language !== currentLanguage) {
+                        setLanguage(currentUserData.language);
+                    }
+                    updateUI(currentUserData);
+                }
+                showLoader(false);
+            });
         });
 
     } catch (error) {
@@ -139,19 +139,16 @@ async function main() {
 // ================= CORE FUNCTIONS =================
 async function initUser(tgUser, initialLang) {
     const doc = await userRef.get();
-    
     if (!doc.exists) {
         const initialUsername = tgUser?.username || tgUser?.first_name || 'New User';
         let photoUrl = tgUser?.photo_url || '';
-
         await userRef.set({
-            // The telegramId is now the document ID itself, but we can store it for clarity
-            telegramId: String(tgUser.id), 
+            telegramId: tgUser?.id ? String(tgUser.id) : 'N/A',
             username: initialUsername,
             photoUrl: photoUrl,
             language: initialLang,
             usdt: 0, localCoin: 0, referrals: 0,
-            lastCheckin: null, streak: 0, 
+            lastCheckin: null, streak: 0,
             lastHourlyClaim: null,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             completedTasks: [], redeemedCodes: []
@@ -159,13 +156,12 @@ async function initUser(tgUser, initialLang) {
     }
 }
 
-
-// A flag to ensure events are bound only once
+// (The rest of the file remains the same. Copy all functions from here downwards)
+// ... (All other functions: bindAllEvents, updateUI, startDailyCountdown, etc.) ...
 let eventsBound = false; 
 function bindAllEvents() {
-    if (eventsBound) return; // Prevent re-binding events
+    if (eventsBound) return;
     eventsBound = true;
-
     document.getElementById('language-switcher')?.addEventListener('click', handleLanguageSwitch);
     document.getElementById('daily-reward-icon')?.addEventListener('click', () => document.getElementById('daily-reward-modal').classList.add('show'));
     document.querySelector('#daily-reward-modal .modal-close-btn')?.addEventListener('click', () => document.getElementById('daily-reward-modal').classList.remove('show'));
@@ -189,9 +185,7 @@ function updateUI(data) {
     const username = data.username || 'User';
     const localCoin = Math.floor(data.localCoin);
     const usdt = Number(data.usdt).toFixed(4);
-
     updateElement('username', username);
-    
     const avatarEl = document.getElementById('user-avatar');
     if (data.photoUrl) {
         avatarEl.src = data.photoUrl;
@@ -201,16 +195,13 @@ function updateUI(data) {
     } else {
         avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username  )}&background=6D28D9&color=fff&bold=true`;
     }
-
     updateElement('local-coin', localCoin);
     updateElement('home-usdt-balance', usdt);
     updateElement('usdt-balance', usdt);
     updateElement('points-balance', localCoin);
     updateElement('referral-count', data.referrals || 0);
-    
     const exchangeRateText = `${POINTS_PER_USDT_UNIT} ${i18n('points')} = ${USDT_PER_UNIT} USDT`;
     document.getElementById('exchange-rate-info-text').innerText = exchangeRateText;
-    
     startDailyCountdown(data.lastCheckin);
     startHourlyCountdown(data.lastHourlyClaim);
 }
@@ -268,27 +259,16 @@ function startHourlyCountdown(lastClaim) {
 }
 
 function showInterstitialAd() {
-    if (!AdController) {
-        console.log("AdController not initialized. Skipping ad.");
-        return;
-    }
-    console.log("Attempting to show Interstitial Ad...");
-    AdController.show().then(result => {
-        console.log("AdsGram ad shown or closed:", result);
-    }).catch(error => {
-        console.error("AdsGram ad error:", error);
-    });
+    if (!AdController) { return; }
+    AdController.show().then(result => {}).catch(error => {});
 }
 
 async function handleLanguageSwitch() {
     const newLang = currentLanguage === 'ar' ? 'en' : 'ar';
     setLanguage(newLang);
     if (userRef) {
-        try {
-            await userRef.update({ language: newLang });
-        } catch (error) {
-            console.error("Failed to save language preference:", error);
-        }
+        try { await userRef.update({ language: newLang }); }
+        catch (error) { console.error("Failed to save language preference:", error); }
     }
 }
 
@@ -328,38 +308,26 @@ async function handleClaimHourlyReward() {
 }
 
 async function handleRedeemGiftCode() {
+    // This function will not work without Cloud Functions.
+    // You can show an alert to the user.
+    showAlert("Gift codes are temporarily unavailable.", "error");
+    return;
+
+    /*
+    // OLD DANGEROUS CODE - DO NOT USE
     const input = document.getElementById("gift-code-input");
     const code = input.value.trim().toUpperCase();
-    if (code === "") return showAlert(i18n('gift_code_placeholder'), "error");
-
-    const btn = document.getElementById("redeem-gift-code-btn");
-    btn.disabled = true; btn.innerText = i18n('loading');
-    try {
-        // This function needs context, so we need to pass the userId (telegramId)
-        const redeemFunction = functions.httpsCallable('redeemGiftCode'  );
-        const result = await redeemFunction({ code: code, userId: userId });
-        if (result.data.success) {
-            showAlert(`${i18n('congrats_points')} ${result.data.reward} ${i18n('points')}`, "success");
-            input.value = "";
-        } else {
-            showAlert(result.data.message, "error");
-        }
-    } catch (error) {
-        showAlert(error.message || i18n('code_invalid'), "error");
-    } finally {
-        btn.disabled = false; btn.innerText = i18n('redeem_code');
-    }
+    // ... this requires a backend to be secure.
+    */
 }
 
 async function handleConvertPoints() {
     const input = document.getElementById('points-to-convert');
     const pointsToConvert = parseInt(input.value);
     const btn = document.getElementById('convert-points-btn');
-
     if (isNaN(pointsToConvert) || pointsToConvert <= 0) return showAlert(i18n('enter_points_amount'), "error");
     if (!currentUserData || currentUserData.localCoin < pointsToConvert) return showAlert(i18n('points_insufficient'), "error");
     if (pointsToConvert < POINTS_PER_USDT_UNIT) return showAlert(`${i18n('min_conversion_limit')} ${POINTS_PER_USDT_UNIT} ${i18n('points')}.`, "error");
-
     btn.disabled = true; btn.innerText = i18n('loading');
     try {
         const usdtToAdd = (pointsToConvert / POINTS_PER_USDT_UNIT) * USDT_PER_UNIT;
@@ -383,7 +351,6 @@ async function handleWithdraw() {
     if (isNaN(amount) || amount < 10) return showAlert(`${i18n('min_10_usdt')} USDT.`, "error");
     if (wallet.length < 10) return showAlert(i18n('enter_wallet_address'), "error");
     if (!currentUserData || currentUserData.usdt < amount) return showAlert(i18n('usdt_balance'), "error");
-    
     const btn = document.getElementById('withdraw-btn');
     btn.disabled = true; btn.innerText = i18n('loading');
     try {
@@ -412,10 +379,8 @@ async function fetchAndDisplayTasks() {
     const urgentContainer = document.getElementById('urgent-tasks-container');
     const regularContainer = document.getElementById('tasks-list-container');
     const urgentSection = document.getElementById('urgent-tasks-section');
-
     urgentContainer.innerHTML = '<div class="loader-spinner" style="margin: 20px auto;"></div>';
     regularContainer.innerHTML = '<div class="loader-spinner" style="margin: 20px auto;"></div>';
-
     try {
         const tasksSnapshot = await db.collection('tasks').orderBy('createdAt', 'desc').get();
         let urgentHtml = '', regularHtml = '';
@@ -459,5 +424,4 @@ async function handleTaskAction(event) {
     }, 5000);
 }
 
-// ================= START THE APP =================
 main();
